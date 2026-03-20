@@ -1,4 +1,5 @@
 import os
+import logging
 import asyncio
 import aiohttp
 import aiosqlite
@@ -25,6 +26,16 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
 }
 
+logging.basicConfig(
+    level=logging.WARNING,
+    format='%(asctime)s | %(levelname)-8s | %(message)s',
+    datefmt='%H:%M:%S',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("crawler.log", encoding='utf-8')
+    ]
+)
+logger = logging.getLogger("R2Crawler")
 
 def load_list_from_file(filepath):
     """Charge chaque ligne d'un fichier dans un ensemble (set) pour une recherche rapide."""
@@ -76,7 +87,6 @@ class R2Crawler:
         """Upload le contenu binaire vers Cloudflare R2."""
         async with self.session_r2.client("s3", endpoint_url=R2_ENDPOINT_URL) as s3:
             key = f"{category}/{filename}" if category else filename
-            print(f"Uploading {filename} to R2 as {key}")
             await s3.upload_fileobj(BytesIO(file_data), R2_BUCKET_NAME, key)
 
     async def process_file(self, session, url, history):
@@ -91,7 +101,10 @@ class R2Crawler:
                     if code == 200:
                         content = await resp.read()
                         filename = os.path.basename(urlparse(url).path)
+
                         await self.upload_to_r2(content, filename, category)
+                        category = "No category" if not category else category
+                        logger.info(f"UPLOAD   | {category[:12]:<12} | {filename}")
                         status = "uploaded"
                         break
             except Exception:
@@ -100,13 +113,13 @@ class R2Crawler:
 
         await self.db.execute("INSERT OR REPLACE INTO urls VALUES (?, ?, ?, ?)", (url, status, code, i+1))
         await self.db.commit()
-        print(f"  [{status.upper()}] {url} (HTTP: {code})")
+        logger.info(f"{status.upper():<12} | {url} (HTTP: {code})")
 
     async def crawl(self, session, queue):
         while not queue.empty():
             current_url, history = await queue.get()
             if any(word in current_url.lower() for word in BLACKLIST):
-                print(f"🚫 BLACKLIST : {current_url}")
+                logger.warning(f"SKIP     | Blacklist: {urlparse(current_url).path[:50]}")
                 queue.task_done()
                 continue
 
@@ -119,24 +132,28 @@ class R2Crawler:
                 async with session.get(current_url, timeout=15) as resp:
                     code = resp.status
                     if code == 200:
-                        print(f"🔍 VISITE : {current_url} | Queue: {queue.qsize()}")
+                        logger.info(f"VISIT    | {current_url[:70]} | Queue: {queue.qsize()}")
                         soup = BeautifulSoup(await resp.text(), 'html.parser')
                         new_history = history + [current_url]
                         for tag in soup.find_all('a', href=True):
                             link = urljoin(current_url, tag['href']).split('#')[0]
                             if any(link.lower().endswith(ext) for ext in EXTENSIONS):
-                                asyncio.create_task(self.process_file(session, link, new_history))
+                                if current_url is not BASE_URL:
+                                    asyncio.create_task(self.process_file(session, link, new_history))
+                                else:
+                                    logger.warning(f"SKIP     | HomePage file: {urlparse(current_url).path[:50]}")
+                                    
                             elif urlparse(link).netloc == self.domain:
                                 if not await self.is_processed(link):
                                     await queue.put((link, new_history))
                         status = "visited"
                     else:
                         status = "failed"
-                        print(f"❌ ÉCHEC FINAL (Code {code}) : {url} après {attempts} essais")
+                        logger.error(f"FAIL     | {code} | {url} après {attempts} essais")
             except Exception as e:
                 code = 999
                 status = "failed"
-                print(f"⚠️ Connexion perdue sur {current_url} : {e}")
+                logger.error(f"FAIL     | Connexion perdue sur {current_url} : {e}")
             
             await self.db.execute("INSERT OR REPLACE INTO urls VALUES (?, ?, ?, ?)", (current_url, status, code, 1))
             await self.db.commit()
