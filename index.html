@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Crawler Monitor</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f4f4f4; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 400px; }
+        .stat { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #eee; }
+        .value { font-weight: bold; color: #2ecc71; }
+        .failed { color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Crawler Stats</h2>
+        <div id="stats-container">En attente de données...</div>
+    </div>
+
+    <script>
+        const evtSource = new EventSource("/stats/stream");
+        const container = document.getElementById('stats-container');
+
+        evtSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            let html = '';
+            
+            // Boucle sur les statuts (visited, uploaded, failed)
+            for (const [key, value] of Object.entries(data)) {
+                if (key === 'errors_detail') continue;
+                const cssClass = key === 'failed' ? 'failed' : 'value';
+                html += `<div class="stat"><span>${key.toUpperCase()}</span><span class="${cssClass}">${value}</span></div>`;
+            }
+            container.innerHTML = html;
+        };
+
+        evtSource.onerror = () => {
+            container.innerHTML = "<div class='failed'>Connexion perdue au serveur...</div>";
+        };
+    </script>
+</body>
+</html>
