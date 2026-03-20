@@ -16,7 +16,7 @@ R2_BUCKET_NAME = "materials"
 R2_ENDPOINT_URL = f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 # --- CONFIGURATION CRAWLER ---
-BASE_URL = "https://sujetexa.com"
+BASE_URL = "https://sujetexa.com/index.php/category/premiere-a/maths_pa/"
 DB_NAME = "crawler_state.db"
 EXTENSIONS = {'.pdf', '.zip'}
 MAX_RETRIES = 2 
@@ -27,7 +27,7 @@ HEADERS = {
 }
 
 logging.basicConfig(
-    level=logging.WARNING,
+    level=logging.INFO,
     format='%(asctime)s | %(levelname)-8s | %(message)s',
     datefmt='%H:%M:%S',
     handlers=[
@@ -104,7 +104,7 @@ class R2Crawler:
 
                         await self.upload_to_r2(content, filename, category)
                         category = "No category" if not category else category
-                        logger.info(f"UPLOAD   | {category[:12]:<12} | {filename}")
+                        logger.info(f"UPLOAD   | {category[:12]:<12} | {filename} | {history}")
                         status = "uploaded"
                         break
             except Exception:
@@ -113,7 +113,7 @@ class R2Crawler:
 
         await self.db.execute("INSERT OR REPLACE INTO urls VALUES (?, ?, ?, ?)", (url, status, code, i+1))
         await self.db.commit()
-        logger.info(f"{status.upper():<12} | {url} (HTTP: {code})")
+        logger.info(f"{status.upper():<9} | {url} (HTTP: {code})")
 
     async def crawl(self, session, queue):
         while not queue.empty():
@@ -141,7 +141,7 @@ class R2Crawler:
                                 if current_url is not BASE_URL:
                                     asyncio.create_task(self.process_file(session, link, new_history))
                                 else:
-                                    logger.warning(f"SKIP     | HomePage file: {urlparse(current_url).path[:50]}")
+                                    logger.warning(f"SKIP     | Index content: {urlparse(current_url).path[:50]}")
                                     
                             elif urlparse(link).netloc == self.domain:
                                 if not await self.is_processed(link):
