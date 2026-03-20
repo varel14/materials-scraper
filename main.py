@@ -3,7 +3,7 @@ import aiosqlite
 import json
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, HTMLResponse
-from crawler R2Crawler, DB_NAME
+from crawler import R2Crawler, DB_NAME
 
 app = FastAPI(title="Crawler Stats Dashboard")
 DB_NAME = "crawler_state.db"
