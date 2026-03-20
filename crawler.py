@@ -16,7 +16,7 @@ R2_BUCKET_NAME = "materials"
 R2_ENDPOINT_URL = f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
 # --- CONFIGURATION CRAWLER ---
-BASE_URL = "https://sujetexa.com/index.php/category/premiere-a/maths_pa/"
+BASE_URL = "https://sujetexa.com"
 DB_NAME = "crawler_state.db"
 EXTENSIONS = {'.pdf', '.zip'}
 MAX_RETRIES = 2 
