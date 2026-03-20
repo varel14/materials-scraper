@@ -1,0 +1,4 @@
+crawler_state.db
+crawler.log
+__pycache__/
+.venv/

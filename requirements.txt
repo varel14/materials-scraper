@@ -1,0 +1,8 @@
+requests 
+brotli
+beautifulsoup4
+aiohttp 
+aiofiles
+aioboto3
+aiosqlite
+beautifulsoup4
